@@ -1,137 +1,128 @@
 import streamlit as st
-import os
 import json
+import os
 
 # -----------------------------
 # Configuration
 # -----------------------------
-DATA_FILE = "tasks.json"
+PROBLEMS_FILE = "problems.json"
+PROGRESS_FILE = "user_progress.json"
 
 # -----------------------------
 # Helper Functions
 # -----------------------------
 
-def load_tasks():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r") as f:
+def load_problems():
+    if os.path.exists(PROBLEMS_FILE):
+        with open(PROBLEMS_FILE, "r") as f:
             return json.load(f)
     return []
 
-def save_tasks(tasks):
-    with open(DATA_FILE, "w") as f:
-        json.dump(tasks, f, indent=4)
+def load_progress():
+    if os.path.exists(PROGRESS_FILE):
+        with open(PROGRESS_FILE, "r") as f:
+            return set(json.load(f))
+    return set()
+
+def save_progress(completed):
+    with open(PROGRESS_FILE, "w") as f:
+        json.dump(list(completed), f)
 
 # -----------------------------
-# App Layout & Logic
+# Page Setup
 # -----------------------------
+st.set_page_config(page_title="450DSA Clone", layout="wide")
+st.title("📚 450DSA Clone - Master DSA for Interviews")
 
-st.set_page_config(page_title="Modern To-Do List", layout="centered")
-
-# Custom CSS for modern look
+# Custom CSS
 st.markdown("""
 <style>
     body {
-        background-color: #f0f2f6;
+        background-color: #f9f9f9;
     }
-    .task-card {
-        background-color: white;
-        padding: 15px 20px;
-        margin-bottom: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        border-left: 6px solid #4A90E2;
-    }
-    .task-done {
-        border-left: 6px solid #27AE60;
-        opacity: 0.7;
-    }
-    .task-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .task-text {
-        font-size: 18px;
-        font-weight: 500;
+    .problem-card {
+        padding: 10px;
         margin-bottom: 10px;
+        border-left: 4px solid #4A90E2;
+        background-color: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
     }
-    .task-actions button {
-        margin-right: 5px;
+    .completed {
+        border-left: 4px solid #27AE60;
+        opacity: 0.8;
     }
-    .edit-input input {
-        font-size: 16px !important;
-    }
-    .full-width {
-        width: 100% !important;
-    }
+    .diff-easy { color: green; font-weight: bold; }
+    .diff-medium { color: orange; font-weight: bold; }
+    .diff-hard { color: red; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📝 Modern To-Do List")
-st.markdown("A beautiful, interactive to-do list built with **Streamlit**.")
+# -----------------------------
+# Load Data
+# -----------------------------
+problems = load_problems()
+progress = load_progress()
 
-# Input new task - full width
-with st.form("add_task_form", clear_on_submit=True):
-    col1, col2 = st.columns([4, 1])
-    with col1:
-        new_task = st.text_input("Add a new task:", key="new_task_input", label_visibility="collapsed")
-    with col2:
-        submitted = st.form_submit_button("➕ Add")
+# -----------------------------
+# Sidebar Filters
+# -----------------------------
+st.sidebar.header("🔍 Filter Problems")
+categories = sorted(set(p["category"] for p in problems))
+selected_category = st.sidebar.selectbox("Select Category", ["All"] + categories)
 
-    if submitted and new_task.strip() != "":
-        tasks = load_tasks()
-        tasks.append({"task": new_task, "done": False})
-        save_tasks(tasks)
-        st.rerun()
+search_term = st.sidebar.text_input("Search Problem Title")
 
-# Load tasks
-tasks = load_tasks()
+# -----------------------------
+# Main View
+# -----------------------------
+filtered = problems
 
-# Display tasks
-for idx, t in enumerate(tasks):
-    card_class = "task-card task-done" if t["done"] else "task-card"
+if selected_category != "All":
+    filtered = [p for p in filtered if p["category"] == selected_category]
 
-    st.markdown(f"<div class='{card_class}'>", unsafe_allow_html=True)
+if search_term:
+    filtered = [p for p in filtered if search_term.lower() in p["title"].lower()]
 
-    col1, col2, col3 = st.columns([6, 3, 2])
+st.subheader(f"Showing {len(filtered)} Problems ({selected_category})")
 
-    with col1:
-        task_text = f"~~{t['task']}~~" if t["done"] else t["task"]
-        st.markdown(f"<div class='task-text'>{task_text}</div>", unsafe_allow_html=True)
+for p in filtered:
+    with st.container():
+        is_completed = p["id"] in progress
+        card_class = "problem-card completed" if is_completed else "problem-card"
+        diff_class = {
+            "Easy": "diff-easy",
+            "Medium": "diff-medium",
+            "Hard": "diff-hard"
+        }.get(p.get("difficulty", "Easy"), "diff-easy")
 
-    with col2:
-        if not t["done"]:
-            if st.button(f"✔️ Complete", key=f"complete_{idx}"):
-                tasks[idx]["done"] = True
-                save_tasks(tasks)
-                st.rerun()
-        else:
-            if st.button(f"🔄 Reopen", key=f"reopen_{idx}"):
-                tasks[idx]["done"] = False
-                save_tasks(tasks)
-                st.rerun()
+        col1, col2 = st.columns([10, 1])
 
-    with col3:
-        if st.button("🗑️ Delete", key=f"delete_{idx}"):
-            tasks.pop(idx)
-            save_tasks(tasks)
-            st.rerun()
+        with col1:
+            st.markdown(f"""
+            <div class="{card_class}">
+                <a href="{p['link']}" target="_blank"><strong>{p['title']}</strong></a><br>
+                <small>Difficulty: <span class="{diff_class}">{p.get('difficulty', 'Easy')}</span></small>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # Edit form inside the card
-    with st.expander("✏️ Edit Task"):
-        with st.form(key=f"edit_form_{idx}"):
-            updated_task = st.text_input("Edit task:", value=t["task"], key=f"edit_input_{idx}", label_visibility="collapsed")
-            update_button = st.form_submit_button("💾 Update")
+        with col2:
+            if is_completed:
+                if st.button("🔁 Undo", key=f"undo_{p['id']}"):
+                    progress.remove(p["id"])
+                    save_progress(progress)
+                    st.rerun()
+            else:
+                if st.button("✅ Done", key=f"done_{p['id']}"):
+                    progress.add(p["id"])
+                    save_progress(progress)
+                    st.rerun()
 
-            if update_button and updated_task.strip() != "":
-                tasks[idx]["task"] = updated_task.strip()
-                save_tasks(tasks)
-                st.rerun()
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# Clear all button (full width)
-if tasks and st.button("❌ Clear All Tasks", use_container_width=True):
-    tasks.clear()
-    save_tasks(tasks)
+# -----------------------------
+# Progress Summary
+# -----------------------------
+st.sidebar.markdown("---")
+st.sidebar.write(f"✅ Completed: {len(progress)} / {len(problems)}")
+if st.sidebar.button("🗑️ Clear Progress"):
+    save_progress(set())
     st.rerun()

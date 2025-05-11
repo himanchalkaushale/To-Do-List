@@ -5,7 +5,7 @@ import os
 # -----------------------------
 # Configuration
 # -----------------------------
-PROBLEMS_JS_FILE = "problems.js"  # Your .js file
+PROBLEMS_JS_FILE = "450DSAFinal.js"  # Your .js file
 PROGRESS_FILE = "user_progress.json"
 
 # -----------------------------

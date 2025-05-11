@@ -82,16 +82,14 @@ tasks = load_tasks()
 
 # Display tasks
 for idx, t in enumerate(tasks):
-    status = "✅" if t["done"] else "🔲"
-    task_text = f"~~{t['task']}~~" if t["done"] else t["task"]
-
     card_class = "task-card task-done" if t["done"] else "task-card"
 
     st.markdown(f"<div class='{card_class}'>", unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([6, 2, 2])
+    col1, col2, col3 = st.columns([6, 3, 2])
 
     with col1:
+        task_text = f"~~{t['task']}~~" if t["done"] else t["task"]
         st.markdown(f"<div class='task-text'>{task_text}</div>", unsafe_allow_html=True)
 
     with col2:
@@ -101,7 +99,10 @@ for idx, t in enumerate(tasks):
                 save_tasks(tasks)
                 st.rerun()
         else:
-            st.write("✔️ Completed")
+            if st.button(f"🔄 Reopen", key=f"reopen_{idx}"):
+                tasks[idx]["done"] = False
+                save_tasks(tasks)
+                st.rerun()
 
     with col3:
         if st.button("🗑️ Delete", key=f"delete_{idx}"):

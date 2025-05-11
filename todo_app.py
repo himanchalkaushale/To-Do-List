@@ -66,7 +66,7 @@ if st.button("Add Task"):
         tasks = load_tasks()
         tasks.append({"task": new_task, "done": False})
         save_tasks(tasks)
-        st.experimental_rerun()
+        st.rerun()
 
 # Load tasks
 tasks = load_tasks()
@@ -83,7 +83,7 @@ for idx, t in enumerate(tasks):
             if st.button("✔️", key=f"complete_{idx}", help="Mark as done"):
                 tasks[idx]["done"] = True
                 save_tasks(tasks)
-                st.experimental_rerun()
+                st.rerun()
         else:
             st.write("✔️")
 
@@ -94,10 +94,10 @@ for idx, t in enumerate(tasks):
         if st.button("🗑️", key=f"delete_{idx}", help="Delete task"):
             tasks.pop(idx)
             save_tasks(tasks)
-            st.experimental_rerun()
+            st.rerun()
 
 # Clear all button
 if tasks and st.button("Clear All Tasks"):
     tasks.clear()
     save_tasks(tasks)
-    st.experimental_rerun()
+    st.rerun()

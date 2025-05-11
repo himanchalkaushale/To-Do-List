@@ -1,12 +1,11 @@
 import streamlit as st
 import json
 import os
-import pyjson5 as json5
 
 # -----------------------------
 # Configuration
 # -----------------------------
-PROBLEMS_JS_FILE = "450DSAFinal.js"  # <-- Your .js file
+PROBLEMS_JS_FILE = "problems.js"  # Your .js file
 PROGRESS_FILE = "user_progress.json"
 
 # -----------------------------
@@ -20,15 +19,28 @@ def load_problems_from_js():
     with open(PROBLEMS_JS_FILE, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Extract JSON-like part after `const problems =`
+    # Step 1: Extract array part
     start_idx = content.find('[')
     end_idx = content.rfind(']') + 1
-    json_like_str = content[start_idx:end_idx]
+    array_str = content[start_idx:end_idx]
+
+    # Step 2: Convert JS syntax to JSON syntax
+    array_str = array_str.replace("id:", '"id":')
+    array_str = array_str.replace("title:", '"title":')
+    array_str = array_str.replace("category:", '"category":')
+    array_str = array_str.replace("link:", '"link":')
+    array_str = array_str.replace("difficulty:", '"difficulty":')
+    array_str = array_str.replace("'", '"')
+
+    # Step 3: Fix missing commas between objects
+    array_str = array_str.replace("}{", "},{")
+    array_str = array_str.replace("] [", "],[")
+    array_str = array_str.replace("} [", "},[")
 
     try:
-        problems = json5.loads(json_like_str)
+        problems = json.loads(array_str)
         for i, p in enumerate(problems):
-            p["id"] = p.get("id", i + 1)  # Ensure ID exists
+            p["id"] = int(p.get("id", i + 1))  # Ensure ID is integer
         return problems
     except Exception as e:
         st.error(f"Error parsing JS file: {e}")

@@ -1,158 +1,165 @@
 import streamlit as st
-import json
 import os
+import json
+import re  # For JS parsing
 
 # -----------------------------
 # Configuration
 # -----------------------------
-PROBLEMS_JS_FILE = "450DSAFinal.js"  # Your .js file
-PROGRESS_FILE = "user_progress.json"
+DATA_FILE = "tasks.json"
+PROBLEMS_JS_FILE = "450DSAFinal.js"  # Optional for DSA clone
 
 # -----------------------------
 # Helper Functions
 # -----------------------------
 
+def load_tasks():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_tasks(tasks):
+    with open(DATA_FILE, "w") as f:
+        json.dump(tasks, f, indent=4)
+
 def load_problems_from_js():
     if not os.path.exists(PROBLEMS_JS_FILE):
         return []
-
     with open(PROBLEMS_JS_FILE, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Step 1: Extract array part
-    start_idx = content.find('[')
-    end_idx = content.rfind(']') + 1
-    array_str = content[start_idx:end_idx]
-
-    # Step 2: Convert JS syntax to JSON syntax
-    array_str = array_str.replace("id:", '"id":')
-    array_str = array_str.replace("title:", '"title":')
-    array_str = array_str.replace("category:", '"category":')
-    array_str = array_str.replace("link:", '"link":')
-    array_str = array_str.replace("difficulty:", '"difficulty":')
-    array_str = array_str.replace("'", '"')
-
-    # Step 3: Fix missing commas between objects
-    array_str = array_str.replace("}{", "},{")
-    array_str = array_str.replace("] [", "],[")
-    array_str = array_str.replace("} [", "},[")
-
-    try:
-        problems = json.loads(array_str)
-        for i, p in enumerate(problems):
-            p["id"] = int(p.get("id", i + 1))  # Ensure ID is integer
-        return problems
-    except Exception as e:
-        st.error(f"Error parsing JS file: {e}")
+    # Extract JSON-like array
+    start_idx = content.find("[")
+    end_idx = content.rfind("]") + 1
+    if start_idx == -1 or end_idx == -1:
+        st.error("Invalid file format: Missing [ or ] in JS file.")
         return []
 
-def load_progress():
-    if os.path.exists(PROGRESS_FILE):
-        with open(PROGRESS_FILE, "r") as f:
-            return set(json.load(f))
-    return set()
+    json_like = content[start_idx:end_idx]
 
-def save_progress(completed):
-    with open(PROGRESS_FILE, "w") as f:
-        json.dump(list(completed), f)
+    # Convert JS syntax to JSON
+    json_like = json_like.replace("'", '"')
+    json_like = re.sub(r'(\w+):', r'"\1":', json_like)  # Quote keys
+    json_like = re.sub(r',\s*([}\]])', r'\1', json_like)  # Remove trailing commas
+
+    try:
+        problems = json.loads(json_like)
+        for i, p in enumerate(problems):
+            p["id"] = int(p.get("id", i + 1))
+        return problems
+    except json.JSONDecodeError as e:
+        st.error(f"Error parsing JS file: {e}")
+        st.code(json_like)
+        return []
 
 # -----------------------------
 # Page Setup
 # -----------------------------
-st.set_page_config(page_title="450DSA Clone", layout="wide")
-st.title("📚 450DSA Clone - Master DSA for Interviews")
+st.set_page_config(page_title="Modern To-Do List", layout="centered")
 
 # Custom CSS
 st.markdown("""
 <style>
     body {
-        background-color: #f9f9f9;
+        background-color: #f0f2f6;
     }
-    .problem-card {
-        padding: 10px;
-        margin-bottom: 10px;
-        border-left: 4px solid #4A90E2;
+    .task-card {
         background-color: white;
-        border-radius: 6px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        padding: 15px 20px;
+        margin-bottom: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-left: 6px solid #4A90E2;
     }
-    .completed {
-        border-left: 4px solid #27AE60;
-        opacity: 0.8;
+    .task-done {
+        border-left: 6px solid #27AE60;
+        opacity: 0.7;
     }
-    .diff-easy { color: green; font-weight: bold; }
-    .diff-medium { color: orange; font-weight: bold; }
-    .diff-hard { color: red; font-weight: bold; }
+    .task-text {
+        font-size: 18px;
+        font-weight: 500;
+        margin-bottom: 10px;
+    }
+    .full-width {
+        width: 100% !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------
-# Load Data
-# -----------------------------
-problems = load_problems_from_js()
-progress = load_progress()
+st.title("📝 Modern To-Do List")
+st.markdown("A beautiful, interactive to-do list built with **Streamlit**.")
 
 # -----------------------------
-# Sidebar Filters
+# Input New Task (Full Width)
 # -----------------------------
-st.sidebar.header("🔍 Filter Problems")
-categories = sorted(set(p["category"] for p in problems if "category" in p))
-selected_category = st.sidebar.selectbox("Select Category", ["All"] + categories)
+with st.form("add_task_form", clear_on_submit=True):
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        new_task = st.text_input("Add a new task:", key="new_task_input", label_visibility="collapsed")
+    with col2:
+        submitted = st.form_submit_button("➕ Add")
 
-search_term = st.sidebar.text_input("Search Problem Title")
-
-# -----------------------------
-# Main View
-# -----------------------------
-filtered = problems
-
-if selected_category != "All":
-    filtered = [p for p in filtered if p.get("category") == selected_category]
-
-if search_term:
-    filtered = [p for p in filtered if search_term.lower() in p.get("title", "").lower()]
-
-st.subheader(f"Showing {len(filtered)} Problems ({selected_category})")
-
-for p in filtered:
-    with st.container():
-        is_completed = p.get("id") in progress
-        card_class = "problem-card completed" if is_completed else "problem-card"
-        diff_class = {
-            "Easy": "diff-easy",
-            "Medium": "diff-medium",
-            "Hard": "diff-hard"
-        }.get(p.get("difficulty", "Easy"), "diff-easy")
-
-        col1, col2 = st.columns([10, 1])
-
-        with col1:
-            title = p.get("title", "Untitled")
-            link = p.get("link", "#")
-            st.markdown(f"""
-            <div class="{card_class}">
-                <a href="{link}" target="_blank"><strong>{title}</strong></a><br>
-                <small>Difficulty: <span class="{diff_class}">{p.get('difficulty', 'Easy')}</span></small>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with col2:
-            if is_completed:
-                if st.button("🔁 Undo", key=f"undo_{p.get('id')}"):
-                    progress.discard(p.get("id"))
-                    save_progress(progress)
-                    st.rerun()
-            else:
-                if st.button("✅ Done", key=f"done_{p.get('id')}"):
-                    progress.add(p.get("id"))
-                    save_progress(progress)
-                    st.rerun()
+    if submitted and new_task.strip() != "":
+        tasks = load_tasks()
+        tasks.append({"task": new_task, "done": False})
+        save_tasks(tasks)
+        st.rerun()
 
 # -----------------------------
-# Progress Summary
+# Load Tasks
 # -----------------------------
-st.sidebar.markdown("---")
-st.sidebar.write(f"✅ Completed: {len(progress)} / {len(problems)}")
-if st.sidebar.button("🗑️ Clear Progress"):
-    save_progress(set())
+tasks = load_tasks()
+
+# -----------------------------
+# Display Tasks
+# -----------------------------
+for idx, t in enumerate(tasks):
+    card_class = "task-card task-done" if t["done"] else "task-card"
+
+    st.markdown(f"<div class='{card_class}'>", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([6, 3, 2])
+
+    with col1:
+        task_text = f"~~{t['task']}~~" if t["done"] else t["task"]
+        st.markdown(f"<div class='task-text'>{task_text}</div>", unsafe_allow_html=True)
+
+    with col2:
+        if not t["done"]:
+            if st.button(f"✔️ Complete", key=f"complete_{idx}"):
+                tasks[idx]["done"] = True
+                save_tasks(tasks)
+                st.rerun()
+        else:
+            if st.button(f"🔄 Reopen", key=f"reopen_{idx}"):
+                tasks[idx]["done"] = False
+                save_tasks(tasks)
+                st.rerun()
+
+    with col3:
+        if st.button("🗑️ Delete", key=f"delete_{idx}"):
+            tasks.pop(idx)
+            save_tasks(tasks)
+            st.rerun()
+
+    # Edit Form
+    with st.expander("✏️ Edit Task"):
+        with st.form(key=f"edit_form_{idx}"):
+            updated_task = st.text_input("Edit task:", value=t["task"], key=f"edit_input_{idx}", label_visibility="collapsed")
+            update_button = st.form_submit_button("💾 Update")
+
+            if update_button and updated_task.strip() != "":
+                tasks[idx]["task"] = updated_task.strip()
+                save_tasks(tasks)
+                st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# -----------------------------
+# Clear All Button
+# -----------------------------
+if tasks and st.button("❌ Clear All Tasks", use_container_width=True):
+    tasks.clear()
+    save_tasks(tasks)
     st.rerun()

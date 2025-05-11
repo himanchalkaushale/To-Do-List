@@ -61,16 +61,23 @@ st.markdown("""
     .edit-input input {
         font-size: 16px !important;
     }
+    .full-width {
+        width: 100% !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("📝 Modern To-Do List")
 st.markdown("A beautiful, interactive to-do list built with **Streamlit**.")
 
-# Input new task
-with st.form("add_task_form"):
-    new_task = st.text_input("Add a new task:")
-    submitted = st.form_submit_button("Add Task")
+# Input new task - full width
+with st.form("add_task_form", clear_on_submit=True):
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        new_task = st.text_input("Add a new task:", key="new_task_input", label_visibility="collapsed")
+    with col2:
+        submitted = st.form_submit_button("➕ Add")
+
     if submitted and new_task.strip() != "":
         tasks = load_tasks()
         tasks.append({"task": new_task, "done": False})
@@ -113,8 +120,8 @@ for idx, t in enumerate(tasks):
     # Edit form inside the card
     with st.expander("✏️ Edit Task"):
         with st.form(key=f"edit_form_{idx}"):
-            updated_task = st.text_input("Edit task:", value=t["task"], key=f"edit_input_{idx}")
-            update_button = st.form_submit_button("Update")
+            updated_task = st.text_input("Edit task:", value=t["task"], key=f"edit_input_{idx}", label_visibility="collapsed")
+            update_button = st.form_submit_button("💾 Update")
 
             if update_button and updated_task.strip() != "":
                 tasks[idx]["task"] = updated_task.strip()
@@ -123,8 +130,8 @@ for idx, t in enumerate(tasks):
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# Clear all button
-if tasks and st.button("❌ Clear All Tasks"):
+# Clear all button (full width)
+if tasks and st.button("❌ Clear All Tasks", use_container_width=True):
     tasks.clear()
     save_tasks(tasks)
     st.rerun()
